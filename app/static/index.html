@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GridWise | Smart Campus Energy Dispatch & Optimization</title>
+  <meta name="description" content="Formal executive microgrid management console for BUP CSE Fest 2026 Smart Campus Energy Optimization Challenge.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Formal Top Navigation Bar -->
+  <header class="app-nav">
+    <div class="nav-container">
+      <div class="brand-group">
+        <div class="brand-shield">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name">GRIDWISE <span class="brand-version">ENTERPRISE v2.0</span></div>
+          <div class="brand-sub">Smart Campus Energy Scheduling & Optimization Console · BUP CSE Fest 2026</div>
+        </div>
+      </div>
+
+      <div class="nav-metrics">
+        <div class="nav-stat">
+          <span class="stat-label">Solver Engine</span>
+          <span class="stat-val text-cyan">SciPy HiGHS LP</span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-stat">
+          <span class="stat-label">System Readiness</span>
+          <span class="stat-val status-online" id="health-badge">
+            <span class="pulse-dot"></span> Online (200 OK)
+          </span>
+        </div>
+        <div class="nav-divider"></div>
+        <div class="nav-actions">
+          <button id="copy-json-btn" class="glass-btn glass-btn-secondary" title="Copy full response JSON to clipboard">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Export JSON</span>
+          </button>
+          <a href="/docs" target="_blank" class="glass-btn glass-btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>API Docs</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Executive Layout -->
+  <main class="page-container">
+    
+    <!-- Scenario Selection & Command Bar -->
+    <section class="command-bar glass-surface">
+      <div class="command-left">
+        <label for="scenario-select" class="command-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+          ACTIVE DISPATCH SCENARIO
+        </label>
+        <div class="select-wrapper">
+          <select id="scenario-select" class="glass-select">
+            <option value="" disabled selected>Loading scenarios from database...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="command-right">
+        <button id="run-opt-btn" class="glass-btn glass-btn-execute">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>Execute Optimization Engine</span>
+        </button>
+        <button id="reset-btn" class="glass-btn glass-btn-secondary" title="Reload original input parameters">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Reload</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Executive Operator Notes Dossier -->
+    <section class="notes-dossier glass-surface">
+      <div class="section-title-bar">
+        <div class="title-with-pill">
+          <div class="section-indicator"></div>
+          <h2>OPERATOR LOG & DIRECTIVE NOTICES</h2>
+        </div>
+        <span class="pill-badge" id="notes-count-badge">0 Active Notes</span>
+      </div>
+      <div id="notes-list" class="notes-cards-container">
+        <!-- Notes dynamically populated -->
+      </div>
+    </section>
+
+    <!-- Key Performance Indicators (KPIs) -->
+    <section class="kpi-grid">
+      <div class="kpi-card glass-surface">
+        <div class="kpi-header">
+          <span class="kpi-title">TOTAL GRID IMPORT</span>
+          <span class="kpi-icon-pill">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-number" id="metric-grid-kwh">--</span>
+          <span class="kpi-unit">kWh</span>
+        </div>
+        <div class="kpi-footer">Cumulative 24-hour utility purchase</div>
+      </div>
+
+      <div class="kpi-card glass-surface highlight-cost">
+        <div class="kpi-header">
+          <span class="kpi-title">TOTAL FINANCIAL EXPENDITURE</span>
+          <span class="kpi-icon-pill icon-cyan">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><line x1="12" y1="6" x2="12" y2="8"></line><line x1="12" y1="16" x2="12" y2="18"></line></svg>
+          </span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-number text-cyan" id="metric-cost-bdt">--</span>
+          <span class="kpi-unit">BDT</span>
+        </div>
+        <div class="kpi-footer">Tariff-weighted global optimal cost</div>
+      </div>
+
+      <div class="kpi-card glass-surface">
+        <div class="kpi-header">
+          <span class="kpi-title">PEAK FEEDER DEMAND</span>
+          <span class="kpi-icon-pill icon-amber">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-number" id="metric-peak-kwh">--</span>
+          <span class="kpi-unit">kWh</span>
+        </div>
+        <div class="kpi-footer">Maximum single-hour grid intake</div>
+      </div>
+
+      <div class="kpi-card glass-surface">
+        <div class="kpi-header">
+          <span class="kpi-title">BESS STATE NEUTRALITY</span>
+          <span class="kpi-icon-pill icon-emerald">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><path d="M23 13v-2"></path></svg>
+          </span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-number text-emerald" id="metric-neutrality">100%</span>
+          <span class="kpi-unit">Compliant</span>
+        </div>
+        <div class="kpi-footer" id="metric-neutrality-sub">E_start == E_end</div>
+      </div>
+    </section>
+
+    <!-- Strategy Summary Banner -->
+    <section id="strategy-banner" class="strategy-banner glass-surface" style="display: none;">
+      <div class="strategy-icon-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </div>
+      <div class="strategy-content">
+        <div class="strategy-header-title">Executive Plan Summary & Dispatch Rationale</div>
+        <div class="strategy-text" id="strategy-summary-text">Ready.</div>
+      </div>
+    </section>
+
+    <!-- Directive Interpretation Audit Deck -->
+    <section class="directives-deck glass-surface">
+      <div class="section-title-bar">
+        <div class="title-with-pill">
+          <div class="section-indicator"></div>
+          <h2>STRUCTURED DIRECTIVE INTERPRETATION & AUDIT</h2>
+        </div>
+        <span class="pill-badge pill-verified">Deterministic Guardrail Validated</span>
+      </div>
+      <div id="directives-container" class="directives-cards-grid">
+        <div class="empty-placeholder">Execute the optimization engine to inspect structured directive mappings.</div>
+      </div>
+    </section>
+
+    <!-- Analytics & SCADA Visualization Deck -->
+    <section class="charts-deck">
+      <div class="chart-panel glass-surface">
+        <div class="chart-title-bar">
+          <div>
+            <h3>Hourly Energy Balance Breakdown</h3>
+            <span class="chart-subtitle">Demand Supply Allocation: Grid, Solar & BESS Discharge</span>
+          </div>
+          <span class="chart-badge">Energy Balance</span>
+        </div>
+        <div class="chart-box">
+          <canvas id="energyBalanceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-panel glass-surface">
+        <div class="chart-title-bar">
+          <div>
+            <h3>BESS State-of-Charge Dynamics</h3>
+            <span class="chart-subtitle">Energy (kWh) Traced Against Capacity & Active Reserve Limits</span>
+          </div>
+          <span class="chart-badge">Storage Bounds</span>
+        </div>
+        <div class="chart-box">
+          <canvas id="batteryChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-panel glass-surface full-span">
+        <div class="chart-title-bar">
+          <div>
+            <h3>Tariff-Driven Peak Shaving & Load Shifting</h3>
+            <span class="chart-subtitle">Correlation Between Utility Tariff (BDT/kWh) and Managed Grid Import (kWh)</span>
+          </div>
+          <span class="chart-badge">Economic Arbitrage</span>
+        </div>
+        <div class="chart-box">
+          <canvas id="tariffChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formal 24-Hour Dispatch Ledger Table -->
+    <section class="ledger-section glass-surface">
+      <div class="section-title-bar">
+        <div class="title-with-pill">
+          <div class="section-indicator"></div>
+          <h2>HOURLY DISPATCH LEDGER (HOURS 00:00 – 23:00)</h2>
+        </div>
+        <span class="pill-badge">HiGHS Certified Optimal</span>
+      </div>
+      <div class="table-container">
+        <table class="formal-table">
+          <thead>
+            <tr>
+              <th>INTERVAL</th>
+              <th>DEMAND (kWh)</th>
+              <th>FORECAST SOLAR</th>
+              <th>SOLAR USED</th>
+              <th>GRID IMPORT</th>
+              <th>BESS ACTION</th>
+              <th>ACTION kWh</th>
+              <th>BESS SOC (kWh)</th>
+              <th>TARIFF (BDT)</th>
+              <th>INTERVAL COST (BDT)</th>
+            </tr>
+          </thead>
+          <tbody id="schedule-table-body">
+            <tr>
+              <td colspan="10" class="empty-table-msg">Execute optimization to populate 24-hour audit ledger.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Formal Footer -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <strong>GRIDWISE</strong> · Smart Campus Energy Dispatch System · Preliminary Round
+      </div>
+      <div class="footer-right">
+        Powered by FastAPI · SciPy HiGHS Solver · Gemini LLM · BUP CSE Fest 2026
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
