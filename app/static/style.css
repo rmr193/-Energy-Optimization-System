@@ -432,6 +432,23 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   font-weight: 500;
+  border-radius: var(--radius-xs);
+  padding: 0.15rem 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.note-content-text[contenteditable="true"] {
+  outline: none;
+  cursor: text;
+}
+
+.note-content-text[contenteditable="true"]:hover {
+  background: rgba(136, 19, 55, 0.05);
+}
+
+.note-content-text[contenteditable="true"]:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px var(--maroon-primary);
 }
 
 /* --------------------------------------------------------------------------

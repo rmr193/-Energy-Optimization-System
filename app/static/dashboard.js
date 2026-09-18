@@ -85,7 +85,7 @@ function renderOperatorNotes(notes) {
     item.className = "formal-note-card";
     item.innerHTML = `
       <span class="note-tag">LOG [${String(idx).padStart(2, '0')}]</span>
-      <span class="note-content-text">${escapeHtml(note)}</span>
+      <span class="note-content-text" contenteditable="true" spellcheck="false" title="Click to edit note text for custom testing">${escapeHtml(note)}</span>
     `;
     listEl.appendChild(item);
   });
@@ -104,6 +104,10 @@ function setupEventListeners() {
   document.getElementById("run-opt-btn").addEventListener("click", runOptimization);
   document.getElementById("reset-btn").addEventListener("click", () => {
     if (currentCase) {
+      const orig = allCases.find((c) => c.id === currentCase.id);
+      if (orig) {
+        currentCase = JSON.parse(JSON.stringify(orig));
+      }
       selectScenario(currentCase.id);
       runOptimization();
     }
@@ -127,6 +131,17 @@ function setupEventListeners() {
 // ------------------------------------------------------------------------------
 async function runOptimization() {
   if (!currentCase) return;
+
+  // Synchronize any in-place edits from the operator notes dossier
+  const noteEls = document.querySelectorAll(".note-content-text");
+  if (noteEls.length > 0) {
+    const editedNotes = Array.from(noteEls)
+      .map((el) => el.innerText.trim())
+      .filter((t) => t.length > 0);
+    if (editedNotes.length > 0) {
+      currentCase.input.operator_notes = editedNotes;
+    }
+  }
 
   const btn = document.getElementById("run-opt-btn");
   const origHtml = btn.innerHTML;

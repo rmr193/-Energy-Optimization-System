@@ -91,6 +91,51 @@ class OptimizeEnergyRequest(BaseModel):
         # Return sorted by hour ascending
         return sorted(v, key=lambda h: h.hour)
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "scenario_id": "SAMPLE-01",
+                "operator_notes": [
+                    "Facilities will wash the rooftop solar panels from noon until 2 PM. During cleaning, usable solar should be treated as roughly 25% of the forecast.",
+                    "The sports office moved next month's registration deadline."
+                ],
+                "hours": [
+                    {"hour": 0, "demand_kwh": 90.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+                    {"hour": 1, "demand_kwh": 85.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+                    {"hour": 2, "demand_kwh": 80.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
+                    {"hour": 3, "demand_kwh": 80.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
+                    {"hour": 4, "demand_kwh": 85.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
+                    {"hour": 5, "demand_kwh": 95.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
+                    {"hour": 6, "demand_kwh": 110.0, "solar_kwh": 5.0, "tariff_bdt_per_kwh": 8.0},
+                    {"hour": 7, "demand_kwh": 130.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 10.0},
+                    {"hour": 8, "demand_kwh": 150.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 12.0},
+                    {"hour": 9, "demand_kwh": 165.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 14.0},
+                    {"hour": 10, "demand_kwh": 175.0, "solar_kwh": 130.0, "tariff_bdt_per_kwh": 16.0},
+                    {"hour": 11, "demand_kwh": 180.0, "solar_kwh": 160.0, "tariff_bdt_per_kwh": 16.0},
+                    {"hour": 12, "demand_kwh": 185.0, "solar_kwh": 180.0, "tariff_bdt_per_kwh": 15.0},
+                    {"hour": 13, "demand_kwh": 180.0, "solar_kwh": 170.0, "tariff_bdt_per_kwh": 14.0},
+                    {"hour": 14, "demand_kwh": 170.0, "solar_kwh": 140.0, "tariff_bdt_per_kwh": 13.0},
+                    {"hour": 15, "demand_kwh": 165.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 14.0},
+                    {"hour": 16, "demand_kwh": 170.0, "solar_kwh": 45.0, "tariff_bdt_per_kwh": 18.0},
+                    {"hour": 17, "demand_kwh": 185.0, "solar_kwh": 10.0, "tariff_bdt_per_kwh": 22.0},
+                    {"hour": 18, "demand_kwh": 205.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 28.0},
+                    {"hour": 19, "demand_kwh": 215.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 30.0},
+                    {"hour": 20, "demand_kwh": 205.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 26.0},
+                    {"hour": 21, "demand_kwh": 175.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 18.0},
+                    {"hour": 22, "demand_kwh": 135.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.0},
+                    {"hour": 23, "demand_kwh": 105.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 7.0}
+                ],
+                "battery": {
+                    "capacity_kwh": 220.0,
+                    "initial_energy_kwh": 110.0,
+                    "minimum_energy_kwh": 40.0,
+                    "max_charge_kwh_per_hour": 50.0,
+                    "max_discharge_kwh_per_hour": 50.0
+                }
+            }
+        }
+    }
+
 
 # ------------------------------------------------------------------------------
 # Structured Adjustment Schemas (Section 04)
@@ -196,6 +241,60 @@ class OptimizeEnergyResponse(BaseModel):
     total_cost_bdt: float
     peak_grid_kwh: float
     plan_summary: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "scenario_id": "SAMPLE-01",
+                "directive_interpretation": [
+                    {
+                        "note_index": 0,
+                        "applies": True,
+                        "directive_type": "solar_reduction",
+                        "structured_adjustment": {"hours": [12, 13], "factor": 0.25},
+                        "explanation": "Solar output reduced to 25% usable during stated window."
+                    },
+                    {
+                        "note_index": 1,
+                        "applies": False,
+                        "directive_type": "no_op",
+                        "structured_adjustment": None,
+                        "explanation": "This note does not affect today's 24-hour energy schedule."
+                    }
+                ],
+                "hourly_plan": [
+                    {
+                        "hour": 0,
+                        "grid_kwh": 90.0,
+                        "solar_used_kwh": 0.0,
+                        "battery_action": "idle",
+                        "battery_kwh": 0.0,
+                        "battery_energy_after_kwh": 110.0
+                    },
+                    {
+                        "hour": 1,
+                        "grid_kwh": 45.0,
+                        "solar_used_kwh": 0.0,
+                        "battery_action": "discharge",
+                        "battery_kwh": 40.0,
+                        "battery_energy_after_kwh": 70.0
+                    },
+                    {
+                        "hour": 2,
+                        "grid_kwh": 130.0,
+                        "solar_used_kwh": 0.0,
+                        "battery_action": "charge",
+                        "battery_kwh": 50.0,
+                        "battery_energy_after_kwh": 120.0
+                    }
+                ],
+                "total_grid_kwh": 2692.5,
+                "total_cost_bdt": 38365.0,
+                "peak_grid_kwh": 175.0,
+                "plan_summary": "Optimized 24-hour schedule applying 1 active directive(s). Neutrality preserved."
+            }
+        }
+    }
 
 
 class HealthResponse(BaseModel):

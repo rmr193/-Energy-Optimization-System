@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Body, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -66,6 +66,31 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+def _load_sample_openapi_examples() -> Dict[str, Any]:
+    sample_file = DATA_DIR / "sample_cases.json"
+    examples: Dict[str, Any] = {}
+    if sample_file.exists():
+        try:
+            with open(sample_file, "r", encoding="utf-8") as f:
+                cases = json.load(f).get("cases", [])
+                for c in cases:
+                    cid = c.get("id", "SAMPLE")
+                    label = c.get("label", "")
+                    inp = c.get("input")
+                    if inp:
+                        examples[cid] = {
+                            "summary": f"{cid}: {label}",
+                            "description": f"Benchmark scenario {cid} ({label})",
+                            "value": inp,
+                        }
+        except Exception as e:
+            logger.warning(f"Could not load openapi examples from {sample_file}: {e}")
+    return examples
+
+
+SAMPLE_OPENAPI_EXAMPLES = _load_sample_openapi_examples()
+
+
 # ------------------------------------------------------------------------------
 # Exception Handlers (Section 06.1)
 # ------------------------------------------------------------------------------
@@ -113,8 +138,15 @@ async def health_check() -> HealthResponse:
     "/optimize-energy",
     response_model=OptimizeEnergyResponse,
     status_code=status.HTTP_200_OK,
+    summary="Optimize 24-Hour Energy Dispatch",
+    description="Main LLM interpretation + 24-hour LP optimization endpoint. Select an official scenario from the Examples dropdown or submit custom operator notes.",
 )
-async def optimize_energy(request: OptimizeEnergyRequest) -> OptimizeEnergyResponse:
+async def optimize_energy(
+    request: OptimizeEnergyRequest = Body(
+        ...,
+        openapi_examples=SAMPLE_OPENAPI_EXAMPLES,
+    )
+) -> OptimizeEnergyResponse:
     """Main LLM interpretation + 24-hour optimization endpoint.
 
     Flow:
