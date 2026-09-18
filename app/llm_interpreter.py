@@ -66,84 +66,86 @@ CRITICAL RULES:
 """
 
 
-def _parse_hour_token(token: str, default_period: Optional[str] = None) -> Optional[int]:
-    """Convert a time token like 'noon', '1 PM', '13:00', '2', 'midnight' into integer hour 0-23."""
+WORD_TO_NUM = {
+    "midnight": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "noon": 12,
+}
+
+
+def _parse_hour_token(
+    token: str,
+    default_period: Optional[str] = None,
+    is_solar: bool = False,
+) -> Optional[int]:
+    """Convert a time token like 'noon', '1 PM', '13:00', 'one', 'midnight' into integer hour 0-23."""
     t = token.strip().lower()
     if t == "noon" or t == "12 noon":
         return 12
     if t == "midnight" or t == "12 midnight":
         return 0
 
-    word_to_num = {
-        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
-        "eleven": 11, "twelve": 12,
-    }
-    for word, num in word_to_num.items():
+    val = None
+    for word, num in WORD_TO_NUM.items():
         if t.startswith(word):
-            t = t.replace(word, str(num))
+            val = num
+            t = t[len(word):].strip()
+            break
 
-    # Match "13:00" or "13"
-    match_24 = re.match(r"^(\d{1,2})(?::00)?$", t)
-    if match_24:
-        val = int(match_24.group(1))
-        if default_period == "pm" and val < 12:
-            val += 12
-        elif default_period == "am" and val == 12:
-            val = 0
-        return val if 0 <= val <= 24 else None
+    if val is None:
+        m = re.match(r"^(\d{1,2})(?::00)?", t)
+        if m:
+            val = int(m.group(1))
+            t = t[len(m.group(0)):].strip()
 
-    # Match "2 pm", "2:00 am"
-    match_12 = re.match(r"^(\d{1,2})(?::00)?\s*(am|pm)$", t)
-    if match_12:
-        val = int(match_12.group(1))
-        meridiem = match_12.group(2)
-        if meridiem == "pm" and val < 12:
-            val += 12
-        elif meridiem == "am" and val == 12:
-            val = 0
-        return val if 0 <= val <= 24 else None
+    if val is None:
+        return None
 
-    return None
+    period = None
+    if "pm" in t:
+        period = "pm"
+    elif "am" in t:
+        period = "am"
+    elif default_period:
+        period = default_period.lower()
+    elif is_solar and 1 <= val <= 7:
+        # In solar context, 1..7 without meridiem refers to afternoon 13..19 (since 1..7 AM has no solar)
+        period = "pm"
+
+    if period == "pm" and val < 12:
+        val += 12
+    elif period == "am" and val == 12:
+        val = 0
+
+    return val if 0 <= val <= 24 else None
 
 
-def extract_time_window(text: str) -> List[int]:
+def extract_time_window(text: str, is_solar: bool = False) -> List[int]:
     """Extract whole-hour start-inclusive, end-exclusive time interval [start, end)."""
     text_clean = text.replace("–", "-").replace("—", "-")
 
-    # Patterns:
-    # 1. "from X until Y", "between X and Y", "from X to Y"
-    pattern1 = r"(?:from|between)\s+([a-zA-Z0-9:\s]+?)\s+(?:until|to|and)\s+([a-zA-Z0-9:\s]+?)(?:[\.,;]|\s+for|\s+during|\s+because|\s+while|\s+next|\s+with|$)"
+    # 1. Pattern: from/between X until/to/and/through Y
+    pattern1 = r"(?:from|between)\s+([a-zA-Z0-9:]+(?:\s*(?:am|pm))?)\s+(?:until|to|and|through|-)\s+([a-zA-Z0-9:]+(?:\s*(?:am|pm))?)"
     m1 = re.search(pattern1, text_clean, re.IGNORECASE)
     if m1:
-        start_str = m1.group(1).strip()
-        end_str = m1.group(2).strip()
+        s_str, e_str = m1.group(1).strip(), m1.group(2).strip()
+        end_period = "pm" if "pm" in e_str.lower() else ("am" if "am" in e_str.lower() else None)
+        start_period = "pm" if "pm" in s_str.lower() else ("am" if "am" in s_str.lower() else None)
+        def_p = end_period if not start_period else None
 
-        # Infer AM/PM from end if missing from start
-        end_period = "pm" if "pm" in end_str.lower() else ("am" if "am" in end_str.lower() else None)
-        start_period = "pm" if "pm" in start_str.lower() else ("am" if "am" in start_str.lower() else None)
-
-        if not start_period and end_period:
-            # e.g., "1 PM to 3 PM" or "noon until 2 PM" or "1 until 3 PM"
-            if "noon" in start_str.lower():
-                start_h = 12
-            else:
-                start_h = _parse_hour_token(start_str, default_period=end_period)
-        else:
-            start_h = _parse_hour_token(start_str)
-
-        end_h = _parse_hour_token(end_str)
+        start_h = _parse_hour_token(s_str, default_period=def_p, is_solar=is_solar)
+        end_h = _parse_hour_token(e_str, default_period=end_period, is_solar=is_solar)
 
         if start_h is not None and end_h is not None and start_h < end_h:
             return list(range(start_h, end_h))
 
-    # 2. "1-3 PM maintenance window" or "10:00-12:00"
-    pattern2 = r"(\d{1,2})\s*-\s*(\d{1,2})\s*(am|pm)?"
+    # 2. Pattern: "1-3 PM" or "10:00-12:00"
+    pattern2 = r"(\d{1,2})\s*(?:am|pm)?\s*-\s*(\d{1,2})\s*(am|pm)"
     m2 = re.search(pattern2, text_clean, re.IGNORECASE)
     if m2:
         s_val = int(m2.group(1))
         e_val = int(m2.group(2))
-        period = m2.group(3).lower() if m2.group(3) else None
+        period = m2.group(3).lower()
         if period == "pm":
             if s_val < 12:
                 s_val += 12
@@ -151,6 +153,20 @@ def extract_time_window(text: str) -> List[int]:
                 e_val += 12
         if s_val < e_val and 0 <= s_val <= 24 and 0 <= e_val <= 24:
             return list(range(s_val, e_val))
+
+    # 3. Fallback: looser from X until Y with stop words
+    pattern3 = r"(?:from|between)\s+([a-zA-Z0-9:\s]+?)\s+(?:until|to|and)\s+([a-zA-Z0-9:\s]+?)(?:[\.,;]|\s+for|\s+during|\s+because|\s+while|\s+will|\s+next|\s+with|$)"
+    m3 = re.search(pattern3, text_clean, re.IGNORECASE)
+    if m3:
+        s_str, e_str = m3.group(1).strip(), m3.group(2).strip()
+        end_period = "pm" if "pm" in e_str.lower() else ("am" if "am" in e_str.lower() else None)
+        start_period = "pm" if "pm" in s_str.lower() else ("am" if "am" in s_str.lower() else None)
+        def_p = end_period if not start_period else None
+
+        start_h = _parse_hour_token(s_str, default_period=def_p, is_solar=is_solar)
+        end_h = _parse_hour_token(e_str, default_period=end_period, is_solar=is_solar)
+        if start_h is not None and end_h is not None and start_h < end_h:
+            return list(range(start_h, end_h))
 
     return []
 
@@ -182,26 +198,34 @@ def local_semantic_parse_note(
             "explanation": "This note does not affect today's 24-hour energy schedule.",
         }
 
-    hours = extract_time_window(note_text)
+    is_solar = any(k in lower for k in ["solar", "panel", "rooftop", "pv", "inverter"])
+    hours = extract_time_window(note_text, is_solar=is_solar)
 
     # 1. Solar reduction directive
-    if any(k in lower for k in ["solar", "panel", "rooftop", "pv"]):
+    if is_solar:
         # Determine factor (remaining usable solar)
         factor = 0.5  # default
-        m_pct_red = re.search(r"(\d{1,2})%\s*reduction", lower)
-        if m_pct_red:
-            pct = float(m_pct_red.group(1))
-            factor = round((100.0 - pct) / 100.0, 4)
+        if "one-fifth" in lower or "one fifth" in lower:
+            factor = 0.2
+        elif "two-fifths" in lower or "two fifths" in lower:
+            factor = 0.4
+        elif "one-fourth" in lower or "one-quarter" in lower or "a quarter" in lower:
+            factor = 0.25
+        elif "one-third" in lower or "a third" in lower:
+            factor = 0.3333
+        elif "two-thirds" in lower:
+            factor = 0.6667
+        elif "half" in lower:
+            factor = 0.5
         else:
-            m_pct_usable = re.search(r"(?:about|roughly|to)\s*(\d{1,2})%", lower)
-            if m_pct_usable:
-                factor = round(float(m_pct_usable.group(1)) / 100.0, 4)
-            elif "one-fifth" in lower:
-                factor = 0.2
-            elif "half" in lower:
-                factor = 0.5
-            elif "quarter" in lower or "one-fourth" in lower:
-                factor = 0.25
+            m_pct_red = re.search(r"(\d{1,2})%\s*reduction", lower)
+            if m_pct_red:
+                pct = float(m_pct_red.group(1))
+                factor = round((100.0 - pct) / 100.0, 4)
+            else:
+                m_pct_usable = re.search(r"(?:about|roughly|to)\s*(\d{1,2})%", lower)
+                if m_pct_usable:
+                    factor = round(float(m_pct_usable.group(1)) / 100.0, 4)
 
         if hours:
             return {
@@ -215,40 +239,71 @@ def local_semantic_parse_note(
                 "explanation": f"Solar output reduced to {factor * 100:.0f}% usable during stated window.",
             }
 
-    # 2. No Charge Window
-    if any(k in lower for k in ["charger", "charging"]) and any(k in lower for k in ["isolate", "maintenance", "unavailable", "disabled", "not charge", "do not charge"]):
-        if hours:
-            return {
-                "note_index": note_index,
-                "applies": True,
-                "directive_type": "no_charge_window",
-                "structured_adjustment": {"hours": hours},
-                "explanation": "Battery charging is disabled during this window.",
-            }
+    # 2. No Charge Window (Section 04.1)
+    is_no_charge = (
+        any(k in lower for k in ["charger", "charging", "charge"])
+        and any(k in lower for k in [
+            "isolate", "maintenance", "unavailable", "disabled", "not charge",
+            "do not charge", "no charging", "cannot charge", "stop charging",
+            "outage", "prohibited", "offline"
+        ])
+        and not any(k in lower for k in ["discharge", "discharging", "discharged", "reserve"])
+    )
+    if is_no_charge and hours:
+        return {
+            "note_index": note_index,
+            "applies": True,
+            "directive_type": "no_charge_window",
+            "structured_adjustment": {"hours": hours},
+            "explanation": "Battery charging is disabled during this window.",
+        }
 
-    # 3. No Discharge Window
-    if any(k in lower for k in ["discharge", "discharging"]) and any(k in lower for k in ["not discharge", "do not discharge", "disabled", "testing"]):
-        if hours:
-            return {
-                "note_index": note_index,
-                "applies": True,
-                "directive_type": "no_discharge_window",
-                "structured_adjustment": {"hours": hours},
-                "explanation": "Battery discharging is disabled during this window.",
-            }
+    # 3. No Discharge Window (Section 04.1)
+    is_no_discharge = (
+        any(k in lower for k in ["discharge", "discharging"])
+        and any(k in lower for k in [
+            "not discharge", "do not discharge", "no discharge", "no discharging",
+            "disabled", "testing", "unavailable", "prohibited", "stop discharge",
+            "cannot discharge", "prevent discharge", "must not discharge", "avoid discharge"
+        ])
+    )
+    if is_no_discharge and hours:
+        return {
+            "note_index": note_index,
+            "applies": True,
+            "directive_type": "no_discharge_window",
+            "structured_adjustment": {"hours": hours},
+            "explanation": "Battery discharging is disabled during this window.",
+        }
 
-    # 4. Minimum Battery Reserve
-    if any(k in lower for k in ["reserve", "remain in the battery", "stored in the battery", "keep at least"]):
+    # 4. Minimum Battery Reserve (Section 04.1)
+    is_reserve = (
+        any(k in lower for k in [
+            "reserve", "remain in the battery", "stored in the battery",
+            "keep at least", "maintain at least", "stay above", "hold at least",
+            "minimum energy", "minimum battery", "backup"
+        ])
+        and any(k in lower for k in ["battery", "storage", "stored", "kwh", "capacity", "emergency"])
+        and not is_no_charge
+        and not is_no_discharge
+    )
+    if is_reserve:
         min_kwh = 0.0
-        # Check percentage of capacity
-        m_cap_pct = re.search(r"(\d{1,2})%\s*of\s*(?:the\s*)?battery\s*capacity", lower)
-        if m_cap_pct and battery:
-            pct = float(m_cap_pct.group(1)) / 100.0
-            min_kwh = pct * battery.capacity_kwh
+        if "half" in lower and battery:
+            min_kwh = 0.5 * battery.capacity_kwh
+        elif ("one-fourth" in lower or "quarter" in lower or "one fourth" in lower) and battery:
+            min_kwh = 0.25 * battery.capacity_kwh
+        elif ("three-fourths" in lower or "three quarters" in lower or "three fourths" in lower) and battery:
+            min_kwh = 0.75 * battery.capacity_kwh
         else:
-            m_kwh = re.search(r"(\d+(?:\.\d+)?)\s*kwh", lower)
-            if m_kwh:
-                min_kwh = float(m_kwh.group(1))
+            m_cap_pct = re.search(r"(\d{1,2})%\s*(?:of\s*(?:the\s*)?(?:battery\s*)?capacity)?", lower)
+            if m_cap_pct and battery and ("capacity" in lower or "%" in lower):
+                pct = float(m_cap_pct.group(1)) / 100.0
+                min_kwh = pct * battery.capacity_kwh
+            else:
+                m_kwh = re.search(r"(\d+(?:\.\d+)?)\s*kwh", lower)
+                if m_kwh:
+                    min_kwh = float(m_kwh.group(1))
 
         if hours and min_kwh > 0:
             return {
@@ -262,11 +317,23 @@ def local_semantic_parse_note(
                 "explanation": f"Required battery reserve of {min_kwh:.1f} kWh maintained.",
             }
 
-    # 5. Max Grid Window
-    if any(k in lower for k in ["grid import", "grid intake", "feeder", "transformer"]):
-        m_grid = re.search(r"(?:exceed|below|at|limit is)\s*(\d+(?:\.\d+)?)\s*kwh", lower)
+    # 5. Max Grid Window (Section 04.1)
+    is_grid = (
+        any(k in lower for k in [
+            "grid import", "grid intake", "grid draw", "grid consumption",
+            "feeder", "transformer", "substation", "grid limit", "grid"
+        ])
+        and any(k in lower for k in [
+            "exceed", "below", "stay at", "limit is", "capped", "cap",
+            "maximum", "max", "not exceed", "restriction", "constrained"
+        ])
+    )
+    if is_grid:
+        m_grid = re.search(r"(?:exceed|below|at|limit is|stay at or below|cap of|capped at)\s*(\d+(?:\.\d+)?)\s*kwh", lower)
         if not m_grid:
             m_grid = re.search(r"(\d+(?:\.\d+)?)\s*kwh\s*of\s*grid", lower)
+        if not m_grid:
+            m_grid = re.search(r"(\d+(?:\.\d+)?)\s*kwh", lower)
 
         if m_grid and hours:
             cap_kwh = float(m_grid.group(1))

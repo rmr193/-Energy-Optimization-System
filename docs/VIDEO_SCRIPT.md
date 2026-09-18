@@ -37,7 +37,7 @@ When we select **SAMPLE-01** and click 'Run Optimization Plan':
 ---
 
 ### [2:15 – 2:45] Reliability, Benchmarks & Docker Fallback
-**Visual**: Terminal output running `pytest -v` passing all 20 tests in under 5 seconds, followed by Docker container startup.
+**Visual**: Terminal output running `pytest -v` passing all 25 tests in under 5 seconds, followed by Docker container startup.
 - **Presenter**: *"Our solution is thoroughly engineered for production reliability:
 - We achieve a **100% pass rate** across all 10 public reference cases in automated test replay.
 - Average endpoint latency is **under 15 milliseconds** with our local engine and **under 1.2 seconds** with remote LLM calls, well below the 5-second P95 threshold.

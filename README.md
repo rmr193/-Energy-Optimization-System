@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Solver](https://img.shields.io/badge/Optimizer-HiGHS%20LP%20(SciPy)-orange.svg)](https://scipy.org/)
-[![Status](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen.svg)]()
+[![Status](https://img.shields.io/badge/Tests-25%2F25%20Passing-brightgreen.svg)]()
 [![BUP CSE Fest 2026](https://img.shields.io/badge/Hackathon-BUP%20CSE%20Fest%202026-indigo.svg)](https://fest.bupcopc.tech)
 
 An enterprise-grade, high-performance solution for the **BUP CSE Fest 2026 Hackathon (Online Preliminary Round)**: **LLM-Assisted Smart Campus Energy Scheduling and Optimization**.
@@ -21,8 +21,9 @@ GridWise bridges the gap between unstructured human natural-language operator no
 6. [Testing & Verification Suite](#-testing--verification-suite)
 7. [Mathematical Formulation](#-mathematical-formulation)
 8. [Configuration & Environment Variables](#-configuration--environment-variables)
-9. [Architecture & Tie-Break Video Script](#-architecture--tie-break-video-script)
-10. [Security & Secret Handling](#-security--secret-handling)
+9. [Known Limitations & Assumptions](#-known-limitations--assumptions)
+10. [Architecture & Tie-Break Video Script](#-architecture--tie-break-video-script)
+11. [Security & Secret Handling](#-security--secret-handling)
 
 ---
 
@@ -292,6 +293,15 @@ $$\min \sum_{h=0}^{23} G_h \cdot \text{Tariff}_h + 10^{-7} (C_h + D_h) - 10^{-6}
 | `OPENAI_API_KEY` | `""` | OpenAI API key (optional) |
 | `LLM_MODEL` | `gemini-2.5-flash`| Target model identifier |
 | `ENABLE_LOCAL_FALLBACK` | `true` | Enables deterministic NLP engine if remote LLM fails |
+
+---
+
+## ⚠️ Known Limitations & Assumptions
+Per the Challenge Specification and Participant Guidelines:
+1. **Planning Horizon**: Fixed 24-hour discrete planning horizon (hours 0 through 23). Multi-day scheduling and sub-hourly resolution (e.g., 15-minute dispatch) are outside the current problem scope.
+2. **Grid Export & Net Metering**: Power flow is strictly unidirectional from the grid into campus. Grid export is prohibited; surplus solar generation exceeding campus load plus battery charging capacity is curtailed.
+3. **BESS Single Action Constraint**: For any given hour $h$, the battery can either charge, discharge, or remain idle ($C_h \cdot D_h = 0$). Simultaneous charging and discharging is physically non-sensical and disallowed.
+4. **Synthetic Data**: Operates entirely on synthetic campus scenarios provided by the evaluation harness; no real-time telemetry or utility billing connections are required.
 
 ---
 
